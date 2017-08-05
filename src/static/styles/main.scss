@@ -1,0 +1,81 @@
+.mti-duplicate {
+  color: red;
+}
+
+.mti-box {
+  border: 1px solid grey;
+  font-size: 16px;
+  padding: 0px;
+  border-radius: 5px;
+}
+
+.mti-box input {
+  border: none;
+  outline: none !important;
+  padding: 0.5em;
+  font-size: 16px;
+  flex-grow: 100;
+}
+
+.mti-box ul {
+  padding: 0.5em;
+  margin: 0px;
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+
+.mti-box li {
+  background-color: lightgray;
+  margin: 0.25em;
+  border-radius: 5px;
+  padding: 0.5em;
+}
+
+.mti-box li .close:after {
+  content: 'x';
+  color: white;
+  font-weight: 300;
+  font-family: Arial, sans-serif;
+  margin-left: 1em;
+  cursor: pointer;
+}
+.mti-box li .close {
+  cursor: pointer;
+}
+
+.mti-dropdown {
+  background-color: #ccc;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.mti-dropdown div {
+  width: 30%;  
+  padding: 20px;
+
+}
+
+.mti-dropdown li:hover, .mti-dropdown .selected {
+  background-color: red;
+}
+
+.hidden {
+  display: none;
+}
+
+
+
+/* TAG TYPES */
+li.error {
+  background-color: red;
+}
+li.article {
+  background-color: rgb(174, 230, 179);
+}
+li.grvk {
+  background-color: rgb(230, 175, 27);
+}
