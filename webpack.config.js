@@ -108,13 +108,6 @@ if (isProd === true) {
                 filename: 'static/css/[name]-[hash].css',
                 allChunks: true,
             }),
-            new CopyWebpackPlugin([{
-                from: 'src/static/img/',
-                to: 'static/img/'
-            }, {
-                from: 'src/favicon.ico'
-            }]),
-
             // extract CSS into a separate file
             // minify & mangle JS/CSS
             new webpack.optimize.UglifyJsPlugin({

@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
@@ -7,6 +7,7 @@ import Http
 import Dom
 import Task
 import Json.Decode as Decode exposing (field, string, int)
+import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline
 
 
@@ -36,17 +37,13 @@ type alias Model =
     , error : String
     , inputVersion : Int
     , resolveURL : String
-    }
-
-
-type alias Options =
-    { allowMixedTagEntry : Bool
-    , maxTags : Int
+    , multiType : Bool
+    , multiValue : Bool
     }
 
 
 type alias Tag =
-    { uuid : String
+    { id : String
     , label : String
     , description : String
     , class : String
@@ -71,6 +68,8 @@ type alias Flags =
     { tagConfigs : List TagConfig
     , tagResolveURL : String
     , id : String
+    , multiType : Bool
+    , multiValue : Bool
     }
 
 
@@ -85,6 +84,8 @@ init flags =
         ""
         0
         flags.tagResolveURL
+        flags.multiType
+        flags.multiValue
     , Cmd.none
     )
 
@@ -106,7 +107,7 @@ initTagTypes configs =
 
 view : Model -> Html Msg
 view model =
-    div []
+    div [ onKeyDownPreventDefault <| not <| isNewTagAllowed model ]
         [ div [ class "mti-box" ] [ renderTags model ]
         , renderDropDown model
         ]
@@ -114,44 +115,55 @@ view model =
 
 renderTags model =
     model.tags
-        |> List.map renderTag
+        |> List.map (renderTag model)
         |> List.reverse
         |> List.append [ renderInput model ]
         |> List.reverse
         |> ul []
 
 
-renderTag : Tag -> Html Msg
-renderTag tag =
-    li
-        [ class tag.class ]
-        [ text tag.label
-        , span
-            [ class "close"
-            , onClick (RemoveTag tag.label)
+renderTag : Model -> Tag -> Html Msg
+renderTag model tag =
+    let
+        tagClass =
+            if (isTagTypeEnabled tag.class model) then
+                tag.class
+            else
+                "invalid"
+    in
+        li
+            [ class tagClass ]
+            [ text tag.label
+            , span
+                [ class "close"
+                , onClick (RemoveTag tag.label)
+                ]
+                []
             ]
-            []
-        ]
 
 
 renderInput model =
-    input
-        [ id model.id
-        , if (List.isEmpty model.tags) then
-            placeholder "enter tag"
-          else
-            placeholder ""
-        , onKeyDown KeyDown
-        , onInput Input
-        , autocomplete False
-        , onBlur HideSuggestions
-        , value model.inputText
-        , if (tagExists model.inputText model.tags) then
-            class "mti-duplicate"
-          else
-            class ""
-        ]
-        []
+    let
+        tagAllowed =
+            isTagAllowed model.inputText model
+    in
+        input
+            [ id model.id
+            , if (List.isEmpty model.tags) then
+                placeholder "enter tag"
+              else
+                placeholder ""
+            , on "keydown" (Decode.map KeyDown keyCode)
+            , onInput Input
+            , autocomplete False
+            , onBlur HideSuggestions
+            , value model.inputText
+            , if tagAllowed then
+                class ""
+              else
+                class "mti-duplicate"
+            ]
+            []
 
 
 renderDropDown model =
@@ -166,6 +178,7 @@ renderDropDown model =
                 class "mti-dropdown hidden"
             ]
             (model.tagTypes
+                |> List.filter (\t -> t.enabled)
                 |> List.map renderDropDownSuggestionsAndHighlightSelected
             )
 
@@ -228,6 +241,47 @@ renderDropDownEntry selectedSuggestion highlightText tag =
 
 
 
+{--
+    Prevent text being entered if no more tags are allowed
+--}
+
+
+onKeyDownPreventDefault : Bool -> Attribute Msg
+onKeyDownPreventDefault block =
+    let
+        options =
+            { defaultOptions | preventDefault = True }
+
+        filterKey code =
+            if block then
+                Decode.succeed Noop
+            else
+                Decode.fail "ignored input"
+
+        decoder =
+            Html.Events.keyCode
+                |> Decode.andThen filterKey
+    in
+        onWithOptions "keydown" options decoder
+
+
+
+{------------------------------
+    JS Interop
+-------------------------------}
+
+
+{-| Port that allows JS to subscribe to changes in the tag list.
+-}
+port tagListOutput : String -> Cmd msg
+
+
+{-| Port that allows JS to initialize the list of tags.
+-}
+port tagListInput : (String -> msg) -> Sub msg
+
+
+
 {------------------------------
     UPDATE
 -------------------------------}
@@ -241,14 +295,16 @@ type Msg
     | SelectTag Tag
     | Focus
     | FetchSuggestions Int String
-    | FetchSuggestionsResult Int String (Result Http.Error (List Tag))
-    | FetchTagResult String (Result Http.Error Tag)
+    | ProcessSuggestions Int String (Result Http.Error (List Tag))
+    | TagResponse String (Result Http.Error Tag)
     | HideSuggestions
+    | NotifyTagsChanged
+    | SetTags String
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    tagListInput SetTags
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -282,7 +338,7 @@ update msg model =
                 |> Cmd.batch
             )
 
-        FetchSuggestionsResult version class (Ok suggestionList) ->
+        ProcessSuggestions version class (Ok suggestionList) ->
             let
                 populateSuggestions tagType =
                     if tagType.config.class == class then
@@ -300,19 +356,21 @@ update msg model =
                     , Cmd.none
                     )
 
-        FetchSuggestionsResult version class (Err e) ->
+        ProcessSuggestions version class (Err e) ->
             { model | error = formatHttpErrorMessage e }
                 |> update Noop
 
-        FetchTagResult label (Ok tag) ->
+        TagResponse label (Ok tag) ->
             model
                 |> setTagType label tag
-                |> update Noop
+                |> updateEnabledTagTypes
+                |> update NotifyTagsChanged
 
-        FetchTagResult label (Err e) ->
+        TagResponse label (Err e) ->
             { model | error = formatHttpErrorMessage e }
                 |> markTagInvalid label
-                |> update Noop
+                |> updateEnabledTagTypes
+                |> update NotifyTagsChanged
 
         KeyDown key ->
             if key == 13 then
@@ -323,21 +381,32 @@ update msg model =
                     if (currentLabel == "") then
                         -- TODO submit form here...
                         ( model, Cmd.none )
-                    else if (not (tagExists currentLabel model.tags)) then
+                    else if (isTagAllowed currentLabel model) then
                         ( model
                             |> saveTag currentLabel
                             |> clearSuggestions
+                            |> updateEnabledTagTypes
                         , Cmd.batch
-                            [ fetchTag currentLabel model
+                            [ resolveTag currentLabel model
+                            , tagListOutput <| encodeTags model
                             , focus model
                             ]
                         )
                     else
                         ( model, Cmd.none )
             else if (key == 8 && model.inputText == "") then
-                model
-                    |> deleteLastTag
-                    |> update Focus
+                let
+                    updatedModel =
+                        model
+                            |> deleteLastTag
+                            |> updateEnabledTagTypes
+                in
+                    ( updatedModel
+                    , Cmd.batch
+                        [ tagListOutput <| encodeTags updatedModel
+                        , focus updatedModel
+                        ]
+                    )
             else if (key == 38) then
                 model
                     |> selectPreviousSuggestion
@@ -352,17 +421,58 @@ update msg model =
                 ( model, Cmd.none )
 
         RemoveTag label ->
-            { model | tags = (removeTag label model.tags) }
-                |> update Focus
+            let
+                updatedModel =
+                    model
+                        |> removeTag label
+                        |> updateEnabledTagTypes
+            in
+                ( updatedModel
+                , Cmd.batch
+                    [ tagListOutput <| encodeTags updatedModel
+                    , focus updatedModel
+                    ]
+                )
 
         SelectTag tag ->
             model
                 |> addTag tag
                 |> clearSuggestions
+                |> updateEnabledTagTypes
                 |> update Focus
 
         Focus ->
             ( model, focus model )
+
+        NotifyTagsChanged ->
+            ( model, tagListOutput <| encodeTags model )
+
+        SetTags value ->
+            let
+                tagListDecoder =
+                    Decode.list decodeTag
+
+                decodeResult =
+                    Decode.decodeString tagListDecoder value
+
+                tagValues =
+                    case decodeResult of
+                        Ok tags ->
+                            tags
+
+                        Err _ ->
+                            []
+            in
+                { model | tags = tagValues }
+                    |> updateEnabledTagTypes
+                    |> update Noop
+
+
+encodeTags : Model -> String
+encodeTags model =
+    List.map encodeTag model.tags
+        |> Encode.list
+        |> Encode.encode 4
 
 
 focus : Model -> Cmd Msg
@@ -414,15 +524,23 @@ saveTag label model =
 addTag : Tag -> Model -> Model
 addTag tag model =
     { model
-        | tags = model.tags ++ [ tag ]
+        | tags =
+            if (isTagAllowed tag.label model) then
+                model.tags ++ [ tag ]
+            else
+                model.tags
         , inputText = ""
         , selectedSuggestion = Nothing
     }
         |> incrementInputVersion
 
 
-removeTag label tags =
-    List.filter (\t -> t.label /= label) tags
+removeTag : String -> Model -> Model
+removeTag label model =
+    { model
+        | tags =
+            List.filter (\t -> t.label /= label) model.tags
+    }
 
 
 deleteLastTag : Model -> Model
@@ -440,7 +558,7 @@ setTagType label resolvedTag model =
             if (tag.label == label && tag.class == "unknown") then
                 { tag
                     | class = resolvedTag.class
-                    , uuid = resolvedTag.uuid
+                    , id = resolvedTag.id
                     , label = resolvedTag.label
                     , description = resolvedTag.description
                 }
@@ -466,6 +584,17 @@ markTagInvalid label model =
         }
 
 
+isTagAllowed : String -> Model -> Bool
+isTagAllowed label model =
+    isNewTagAllowed model
+        && not (tagExists label model.tags)
+
+
+isNewTagAllowed : Model -> Bool
+isNewTagAllowed model =
+    (model.multiValue || (List.length model.tags == 0))
+
+
 tagExists : String -> List Tag -> Bool
 tagExists label tags =
     tags
@@ -474,9 +603,33 @@ tagExists label tags =
         |> not
 
 
-onKeyDown : (Int -> msg) -> Attribute msg
-onKeyDown tagger =
-    on "keydown" (Decode.map tagger keyCode)
+isTagTypeEnabled : String -> Model -> Bool
+isTagTypeEnabled class model =
+    model.tagTypes
+        |> List.filter (\c -> c.enabled && c.config.class == class)
+        |> List.isEmpty
+        |> not
+
+
+updateEnabledTagTypes : Model -> Model
+updateEnabledTagTypes model =
+    if (model.multiType) then
+        model
+    else
+        let
+            firstTagClass =
+                model.tags
+                    |> List.filter (\t -> t.class /= "")
+                    |> List.head
+                    |> Maybe.withDefault (Tag "" "" "" "")
+                    |> .class
+
+            updatedTypes =
+                model.tagTypes
+                    |> List.map
+                        (\t -> { t | enabled = (firstTagClass == "" || t.config.class == firstTagClass) })
+        in
+            { model | tagTypes = updatedTypes }
 
 
 selectNextSuggestion : Model -> Model
@@ -572,23 +725,33 @@ formatHttpErrorMessage error =
             "Network error"
 
 
-decodeTag : String -> Decode.Decoder Tag
-decodeTag class =
+decodeTag : Decode.Decoder Tag
+decodeTag =
     Pipeline.decode Tag
-        |> Pipeline.required "uuid" string
+        |> Pipeline.required "id" string
         |> Pipeline.required "label" string
         |> Pipeline.required "description" string
-        |> Pipeline.optional "class" string class
+        |> Pipeline.required "class" string
+
+
+encodeTag : Tag -> Encode.Value
+encodeTag tag =
+    Encode.object
+        [ ( "id", Encode.string tag.id )
+        , ( "label", Encode.string tag.label )
+        , ( "description", Encode.string tag.description )
+        , ( "class", Encode.string tag.class )
+        ]
 
 
 fetchSuggestions : Int -> String -> TagType -> Cmd Msg
 fetchSuggestions version text tagType =
     if String.length text > 2 && tagType.enabled then
-        Http.send (FetchSuggestionsResult version tagType.config.class) (Http.get (tagType.config.autoCompleteURL ++ text) (Decode.list (decodeTag tagType.config.class)))
+        Http.send (ProcessSuggestions version tagType.config.class) (Http.get (tagType.config.autoCompleteURL ++ text) (Decode.list decodeTag))
     else
         Cmd.none
 
 
-fetchTag : String -> Model -> Cmd Msg
-fetchTag label model =
-    Http.send (FetchTagResult label) (Http.get (model.resolveURL ++ label) (decodeTag ""))
+resolveTag : String -> Model -> Cmd Msg
+resolveTag label model =
+    Http.send (TagResponse label) (Http.get (model.resolveURL ++ label) decodeTag)
