@@ -47,6 +47,10 @@ npm start
 
 ## TODO
 
+- tabindex
+- focus on inputfield if clicked anywhere in mti-box
+- do not show suggestions if no result was found
+
 - update documentation
 - live demo?
 
