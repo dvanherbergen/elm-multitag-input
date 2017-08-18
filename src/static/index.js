@@ -2,7 +2,7 @@
 require( './styles/main.scss' );
 
 // inject bundled Elm app into div#main
-var Elm = require( '../elm/Main' );
+var Elm = require( '../elm/TagInput' );
 var app = Elm.Main.embed( 
   document.getElementById('example1'),
   {
@@ -53,7 +53,6 @@ app.ports.tagListInput.send(`[
   ]`);
 
 
-var Elm = require( '../elm/Main' );
 var app2 = Elm.Main.embed( 
   document.getElementById('example2'),
   {

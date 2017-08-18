@@ -731,7 +731,7 @@ decodeTag =
         |> Pipeline.required "id" string
         |> Pipeline.required "label" string
         |> Pipeline.required "description" string
-        |> Pipeline.required "class" string
+        |> Pipeline.required "type" string
 
 
 encodeTag : Tag -> Encode.Value
@@ -740,7 +740,7 @@ encodeTag tag =
         [ ( "id", Encode.string tag.id )
         , ( "label", Encode.string tag.label )
         , ( "description", Encode.string tag.description )
-        , ( "class", Encode.string tag.class )
+        , ( "type", Encode.string tag.class )
         ]
 
 
