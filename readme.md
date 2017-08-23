@@ -50,7 +50,13 @@ npm start
 - tabindex
 - focus on inputfield if clicked anywhere in mti-box
 - do not show suggestions if no result was found
-
+- enter text + press tab iso enter -> no tag added
+- autocomplete show empty lists
+- entering value results in red flash before it is resolved..
+- clicking anywhere in the field should focus on input
+- mouse selection doesn't work
+- highlighting of autocomplete matches is case sensitive
+- pressing enter submits the form
 - update documentation
 - live demo?
 
