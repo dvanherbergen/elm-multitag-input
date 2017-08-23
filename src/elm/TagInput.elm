@@ -41,9 +41,8 @@ type alias Model =
     , multiValue : Bool
     }
 
-
 type alias Tag =
-    { id : String
+    { id : Int
     , label : String
     , description : String
     , class : String
@@ -126,7 +125,7 @@ renderTag : Model -> Tag -> Html Msg
 renderTag model tag =
     let
         tagClass =
-            if (isTagTypeEnabled tag.class model) then
+            if (tag.class == "" || (isTagTypeEnabled tag.class model)) then
                 tag.class
             else
                 "invalid"
@@ -135,7 +134,7 @@ renderTag model tag =
             [ class tagClass ]
             [ text tag.label
             , span
-                [ class "close"
+                [ class "mti-close"
                 , onClick (RemoveTag tag.label)
                 ]
                 []
@@ -149,10 +148,6 @@ renderInput model =
     in
         input
             [ id model.id
-            , if (List.isEmpty model.tags) then
-                placeholder "enter tag"
-              else
-                placeholder ""
             , on "keydown" (Decode.map KeyDown keyCode)
             , onInput Input
             , autocomplete False
@@ -186,7 +181,7 @@ renderDropDown model =
 renderDropDownSuggestions : Model -> TagType -> Html Msg
 renderDropDownSuggestions model tagType =
     div []
-        [ h2 [] [ text tagType.config.name ]
+        [ label [] [ text tagType.config.name ]
         , ul
             []
             (List.map
@@ -513,7 +508,7 @@ saveTag label model =
         newTag =
             case model.selectedSuggestion of
                 Nothing ->
-                    Tag "" label label "unknown"
+                    Tag -1 label label "unknown"
 
                 Just tag ->
                     tag
@@ -621,7 +616,7 @@ updateEnabledTagTypes model =
                 model.tags
                     |> List.filter (\t -> t.class /= "")
                     |> List.head
-                    |> Maybe.withDefault (Tag "" "" "" "")
+                    |> Maybe.withDefault (Tag -1 "" "" "")
                     |> .class
 
             updatedTypes =
@@ -728,7 +723,7 @@ formatHttpErrorMessage error =
 decodeTag : Decode.Decoder Tag
 decodeTag =
     Pipeline.decode Tag
-        |> Pipeline.required "id" string
+        |> Pipeline.required "id" int
         |> Pipeline.required "label" string
         |> Pipeline.required "description" string
         |> Pipeline.required "type" string
@@ -737,7 +732,7 @@ decodeTag =
 encodeTag : Tag -> Encode.Value
 encodeTag tag =
     Encode.object
-        [ ( "id", Encode.string tag.id )
+        [ ( "id", Encode.int tag.id )
         , ( "label", Encode.string tag.label )
         , ( "description", Encode.string tag.description )
         , ( "type", Encode.string tag.class )

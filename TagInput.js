@@ -9309,7 +9309,7 @@ var _user$project$Main$encodeTag = function (tag) {
 			_0: {
 				ctor: '_Tuple2',
 				_0: 'id',
-				_1: _elm_lang$core$Json_Encode$string(tag.id)
+				_1: _elm_lang$core$Json_Encode$int(tag.id)
 			},
 			_1: {
 				ctor: '::',
@@ -9644,7 +9644,7 @@ var _user$project$Main$saveTag = F2(
 		var newTag = function () {
 			var _p13 = model.selectedSuggestion;
 			if (_p13.ctor === 'Nothing') {
-				return A4(_user$project$Main$Tag, '', label, label, 'unknown');
+				return A4(_user$project$Main$Tag, -1, label, label, 'unknown');
 			} else {
 				return _p13._0;
 			}
@@ -9660,7 +9660,7 @@ var _user$project$Main$updateEnabledTagTypes = function (model) {
 		}(
 			A2(
 				_elm_lang$core$Maybe$withDefault,
-				A4(_user$project$Main$Tag, '', '', '', ''),
+				A4(_user$project$Main$Tag, -1, '', '', ''),
 				_elm_lang$core$List$head(
 					A2(
 						_elm_lang$core$List$filter,
@@ -9698,7 +9698,7 @@ var _user$project$Main$decodeTag = A3(
 			A3(
 				_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
 				'id',
-				_elm_lang$core$Json_Decode$string,
+				_elm_lang$core$Json_Decode$int,
 				_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_user$project$Main$Tag)))));
 var _user$project$Main$TagType = F3(
 	function (a, b, c) {
@@ -9850,7 +9850,7 @@ var _user$project$Main$renderDropDownSuggestions = F2(
 			{
 				ctor: '::',
 				_0: A2(
-					_elm_lang$html$Html$h2,
+					_elm_lang$html$Html$label,
 					{ctor: '[]'},
 					{
 						ctor: '::',
