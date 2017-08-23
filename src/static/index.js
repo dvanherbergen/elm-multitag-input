@@ -29,6 +29,7 @@ var app = Elm.Main.embed(
      "tagResolveURL" : "http://localhost:8080/static/resolve.json?q=",
     "multiType" : false,
     "multiValue" : true,
+    "tabIndex" : 1,
     "id" : "ex1"
   }
   );
@@ -39,12 +40,12 @@ app.ports.tagListOutput.subscribe(function(tags) {
 
 app.ports.tagListInput.send(`[
 {
-        "id": "1234",
+        "id": 1234,
         "label": "InitArticle 1" ,
         "class": "article",
         "description": "1234 - Article aa" 
     }, {
-        "id": "1235",
+        "id": 1235,
         "label": "Init Article 2",
         "description": "1234 - Article bb",
         "class": "article"
@@ -74,6 +75,7 @@ var app2 = Elm.Main.embed(
     "tagResolveURL" : "http://tag-list.getsandbox.com/resolve/",
     "multiType" : false,
     "multiValue" : true,
+    "tabIndex" : 2,
     "id" : "ex2"
   }
   );
@@ -84,7 +86,7 @@ app2.ports.tagListOutput.subscribe(function(tags) {
 
 app2.ports.tagListInput.send(`[
 {
-        "id": "1234",
+        "id": 1234,
         "label": "InitArticle 1" ,
         "class": "article",
         "description": "1234 - Article aa" 

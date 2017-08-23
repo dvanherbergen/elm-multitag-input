@@ -5,9 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body>
+  <form onsubmit="alert('form submitted');return false;">
     <h3>single type / multivalue ; local</h3>
     <div id="example1"></div>
+
+    <input tabindex="1">
+
     <h3>single type / multivalue ; remote</h3>
     <div id="example2"></div>
+    <input type="submit" value="Submit">
+  </form>
   </body>
 </html>

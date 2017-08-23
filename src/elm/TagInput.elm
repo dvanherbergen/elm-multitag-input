@@ -39,7 +39,9 @@ type alias Model =
     , resolveURL : String
     , multiType : Bool
     , multiValue : Bool
+    , tabIndex : Int
     }
+
 
 type alias Tag =
     { id : Int
@@ -69,6 +71,7 @@ type alias Flags =
     , id : String
     , multiType : Bool
     , multiValue : Bool
+    , tabIndex : Int
     }
 
 
@@ -85,6 +88,7 @@ init flags =
         flags.tagResolveURL
         flags.multiType
         flags.multiValue
+        flags.tabIndex
     , Cmd.none
     )
 
@@ -106,8 +110,12 @@ initTagTypes configs =
 
 view : Model -> Html Msg
 view model =
-    div [ onKeyDownPreventDefault <| not <| isNewTagAllowed model ]
-        [ div [ class "mti-box" ] [ renderTags model ]
+    div [ onKeyDownPreventDefault (model.inputText /= "") (not <| isNewTagAllowed model) ]
+        [ div
+            [ class "mti-box"
+            , onClick Focus
+            ]
+            [ renderTags model ]
         , renderDropDown model
         ]
 
@@ -125,10 +133,10 @@ renderTag : Model -> Tag -> Html Msg
 renderTag model tag =
     let
         tagClass =
-            if (tag.class == "" || (isTagTypeEnabled tag.class model)) then
+            if (tag.class == "unknown" || (isTagTypeEnabled tag.class model)) then
                 tag.class
             else
-                "invalid"
+                "error"
     in
         li
             [ class tagClass ]
@@ -148,6 +156,7 @@ renderInput model =
     in
         input
             [ id model.id
+            , tabindex model.tabIndex
             , on "keydown" (Decode.map KeyDown keyCode)
             , onInput Input
             , autocomplete False
@@ -173,7 +182,7 @@ renderDropDown model =
                 class "mti-dropdown hidden"
             ]
             (model.tagTypes
-                |> List.filter (\t -> t.enabled)
+                |> List.filter (\t -> t.enabled && not (List.isEmpty t.suggestions))
                 |> List.map renderDropDownSuggestionsAndHighlightSelected
             )
 
@@ -205,7 +214,7 @@ renderDropDownEntry selectedSuggestion highlightText tag =
                         ""
 
         renderLabel label highlightText =
-            case List.head <| String.indexes highlightText tag.label of
+            case List.head <| String.indexes (String.toUpper highlightText) (String.toUpper tag.label) of
                 Nothing ->
                     [ text label ]
 
@@ -217,14 +226,17 @@ renderDropDownEntry selectedSuggestion highlightText tag =
                         endPos =
                             startPos + String.length highlightText
 
+                        midStr =
+                            String.slice startPos (startPos + String.length highlightText) tag.label
+
                         endStr =
                             String.dropLeft endPos tag.label
                     in
-                        if highlightText == label then
+                        if cssClass == "selected" then
                             [ text label ]
                         else
                             [ text startStr
-                            , strong [] [ text highlightText ]
+                            , strong [] [ text midStr ]
                             , text endStr
                             ]
     in
@@ -235,23 +247,20 @@ renderDropDownEntry selectedSuggestion highlightText tag =
             (renderLabel tag.label highlightText)
 
 
-
-{--
-    Prevent text being entered if no more tags are allowed
---}
-
-
-onKeyDownPreventDefault : Bool -> Attribute Msg
-onKeyDownPreventDefault block =
+{-| Prevent text being entered if no more tags are allowed
+    and only allow submit of form when all text input has been processed
+-}
+onKeyDownPreventDefault : Bool -> Bool -> Attribute Msg
+onKeyDownPreventDefault blockSubmit blockTextEntry =
     let
         options =
             { defaultOptions | preventDefault = True }
 
         filterKey code =
-            if block then
+            if ((code == 13 && blockSubmit) || blockTextEntry) then
                 Decode.succeed Noop
             else
-                Decode.fail "ignored input"
+                Decode.fail "nothing prevented..."
 
         decoder =
             Html.Events.keyCode
@@ -368,15 +377,12 @@ update msg model =
                 |> update NotifyTagsChanged
 
         KeyDown key ->
-            if key == 13 then
+            if key == 13 || key == 9 then
                 let
                     currentLabel =
                         String.trim model.inputText
                 in
-                    if (currentLabel == "") then
-                        -- TODO submit form here...
-                        ( model, Cmd.none )
-                    else if (isTagAllowed currentLabel model) then
+                    if (isTagAllowed currentLabel model) then
                         ( model
                             |> saveTag currentLabel
                             |> clearSuggestions
@@ -405,6 +411,11 @@ update msg model =
             else if (key == 38) then
                 model
                     |> selectPreviousSuggestion
+                    |> setInputTextToSuggestion
+                    |> update Noop
+            else if (key == 39) then
+                model
+                    |> selectSuggestionInNextBlock
                     |> setInputTextToSuggestion
                     |> update Noop
             else if (key == 40) then
@@ -645,6 +656,50 @@ selectNextSuggestion model =
                 }
 
 
+substringList : a -> List a -> List a
+substringList fromValue list =
+    List.foldl
+        (\a b ->
+            (if ((not <| List.isEmpty b) || a == fromValue) then
+                a :: b
+             else
+                b
+            )
+        )
+        []
+        list
+
+
+selectSuggestionInNextBlock : Model -> Model
+selectSuggestionInNextBlock model =
+    case model.selectedSuggestion of
+        Nothing ->
+            model
+
+        Just selectedTag ->
+            let
+                suggestions =
+                    getAllSuggestions model
+
+                suggestionsStartingFromCurrent =
+                    substringList selectedTag suggestions
+
+                firstSuggestionWithDifferentClass =
+                    suggestionsStartingFromCurrent
+                        |> List.drop 1
+                        |> List.head
+            in
+                case firstSuggestionWithDifferentClass of
+                    Nothing ->
+                        model
+
+                    Just tag ->
+                        { model
+                            | selectedSuggestion =
+                                Just tag
+                        }
+
+
 getAllSuggestions : Model -> List Tag
 getAllSuggestions model =
     List.map .suggestions model.tagTypes
@@ -726,7 +781,7 @@ decodeTag =
         |> Pipeline.required "id" int
         |> Pipeline.required "label" string
         |> Pipeline.required "description" string
-        |> Pipeline.required "type" string
+        |> Pipeline.required "class" string
 
 
 encodeTag : Tag -> Encode.Value
@@ -735,7 +790,7 @@ encodeTag tag =
         [ ( "id", Encode.int tag.id )
         , ( "label", Encode.string tag.label )
         , ( "description", Encode.string tag.description )
-        , ( "type", Encode.string tag.class )
+        , ( "class", Encode.string tag.class )
         ]
 
 

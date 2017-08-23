@@ -15,6 +15,7 @@
   padding: 0.5em;
   font-size: 16px;
   flex-grow: 100;
+  width: 6rem;
 }
 
 .mti-box ul {
@@ -34,7 +35,7 @@
   padding: 0.5em;
 }
 
-.mti-box li .close:after {
+.mti-box li .mti-close:after {
   content: 'x';
   color: white;
   font-weight: 300;
@@ -42,7 +43,7 @@
   margin-left: 1em;
   cursor: pointer;
 }
-.mti-box li .close {
+.mti-box li .mti-close {
   cursor: pointer;
 }
 
@@ -70,7 +71,10 @@
 
 
 /* TAG TYPES */
-li.error , li.invalid {
+li.unknown {
+  background-color: gray;  
+}
+li.error {
   background-color: red;
 }
 li.article {

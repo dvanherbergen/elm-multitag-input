@@ -8,7 +8,7 @@ This component is designed to be used as an embedded ELM component in JSF (integ
 
 - Object backed. Every tag corresponds to a tag object.
 ```
-  { "id": "tag identifier",
+  { "id": number,
     "class": "tag type name. also used as css class",
     "label": "text to show on tag",
     "description" : "text to show in tag tooltip"
@@ -45,22 +45,29 @@ npm start
 - Want a new feature? Raise a pull request.
 
 
+
+## Done
+
+- focus on inputfield if clicked anywhere in mti-box
+- enter text + press tab iso enter -> no tag added
+- do not show suggestions if no result was found
+- highlighting of autocomplete matches is case sensitive
+- define class for unknown
+- tabindex
+- pressing enter submits the form
+- input field wraps when still room left on same line
+
 ## TODO
 
-- tabindex
-- focus on inputfield if clicked anywhere in mti-box
-- do not show suggestions if no result was found
-- enter text + press tab iso enter -> no tag added
-- autocomplete show empty lists
-- entering value results in red flash before it is resolved..
-- clicking anywhere in the field should focus on input
+- arrow right should move to next list in dropdown
 - mouse selection doesn't work
-- highlighting of autocomplete matches is case sensitive
-- pressing enter submits the form
 - update documentation
 - live demo?
 
-
+* change json marshalling to class
+* set unknown as classtype for unresolvedtagbo
+* add width:6rem to mti-input css
+* add tabindex flag
 
 
 
