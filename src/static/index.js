@@ -2,12 +2,12 @@
 require( './styles/main.scss' );
 
 // inject bundled Elm app into div#main
-var Elm = require( '../elm/TagInput' );
-var app = Elm.Main.embed( 
+var Elm = require( '../elm/MultiTagInput' );
+var app = Elm.Main.embed(
   document.getElementById('example1'),
   {
-    "tagConfigs" : 
-      [ 
+    "tagConfigs" :
+      [
         { "name" : "Artikels"
         , "class" : "article"
         /*, "autoCompleteURL" : "http://tag-list.getsandbox.com/article/"*/
@@ -38,12 +38,17 @@ app.ports.tagListOutput.subscribe(function(tags) {
         console.log('TAGS: ' + tags);
     });
 
+
+app.ports.formSubmitEvent.subscribe(function() {
+        alert('Submit form here...');
+    });
+
 app.ports.tagListInput.send(`[
 {
         "id": 1234,
         "label": "InitArticle 1" ,
         "class": "article",
-        "description": "1234 - Article aa" 
+        "description": "1234 - Article aa"
     }, {
         "id": 1235,
         "label": "Init Article 2",
@@ -54,11 +59,11 @@ app.ports.tagListInput.send(`[
   ]`);
 
 
-var app2 = Elm.Main.embed( 
+var app2 = Elm.Main.embed(
   document.getElementById('example2'),
   {
-    "tagConfigs" : 
-      [ 
+    "tagConfigs" :
+      [
         { "name" : "Artikels"
         , "class" : "article"
         ,"autoCompleteURL" : "http://tag-list.getsandbox.com/article/"
@@ -89,6 +94,6 @@ app2.ports.tagListInput.send(`[
         "id": 1234,
         "label": "InitArticle 1" ,
         "class": "article",
-        "description": "1234 - Article aa" 
+        "description": "1234 - Article aa"
     }
   ]`);

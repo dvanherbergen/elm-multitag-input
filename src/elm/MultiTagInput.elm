@@ -110,7 +110,7 @@ initTagTypes configs =
 
 view : Model -> Html Msg
 view model =
-    div [ onKeyDownPreventDefault (model.inputText /= "") (not <| isNewTagAllowed model) ]
+    div [ onKeyDownPreventDefault (model.inputText == "") (not <| isNewTagAllowed model) ]
         [ div
             [ class "mti-box"
             , onClick Focus
@@ -159,6 +159,7 @@ renderInput model =
             , tabindex model.tabIndex
             , on "keydown" (Decode.map KeyDown keyCode)
             , onInput Input
+            , autofocus True
             , autocomplete False
             , onBlur HideSuggestions
             , value model.inputText
@@ -251,13 +252,18 @@ renderDropDownEntry selectedSuggestion highlightText tag =
     and only allow submit of form when all text input has been processed
 -}
 onKeyDownPreventDefault : Bool -> Bool -> Attribute Msg
-onKeyDownPreventDefault blockSubmit blockTextEntry =
+onKeyDownPreventDefault allowSubmit blockTextEntry =
     let
         options =
             { defaultOptions | preventDefault = True }
 
         filterKey code =
-            if ((code == 13 && blockSubmit) || blockTextEntry) then
+            if code == 13 then
+                if allowSubmit then
+                    Decode.succeed NotifyFormSubmitted
+                else
+                    Decode.succeed Noop
+            else if blockTextEntry then
                 Decode.succeed Noop
             else
                 Decode.fail "nothing prevented..."
@@ -285,6 +291,12 @@ port tagListOutput : String -> Cmd msg
 port tagListInput : (String -> msg) -> Sub msg
 
 
+{-| Port that allows JS to subscribe to form submit events in the field.
+    The submit event is triggered when the user presses Enter whilst no Tag is being entered.
+-}
+port formSubmitEvent : String -> Cmd msg
+
+
 
 {------------------------------
     UPDATE
@@ -304,6 +316,7 @@ type Msg
     | HideSuggestions
     | NotifyTagsChanged
     | SetTags String
+    | NotifyFormSubmitted
 
 
 subscriptions : Model -> Sub Msg
@@ -382,7 +395,7 @@ update msg model =
                     currentLabel =
                         String.trim model.inputText
                 in
-                    if (isTagAllowed currentLabel model) then
+                    if (model.inputText /= "" && isTagAllowed currentLabel model) then
                         ( model
                             |> saveTag currentLabel
                             |> clearSuggestions
@@ -452,6 +465,9 @@ update msg model =
 
         NotifyTagsChanged ->
             ( model, tagListOutput <| encodeTags model )
+
+        NotifyFormSubmitted ->
+            ( model, formSubmitEvent "" )
 
         SetTags value ->
             let
@@ -781,7 +797,7 @@ decodeTag =
         |> Pipeline.required "id" int
         |> Pipeline.required "label" string
         |> Pipeline.required "description" string
-        |> Pipeline.required "class" string
+        |> Pipeline.required "type" string
 
 
 encodeTag : Tag -> Encode.Value
@@ -790,7 +806,7 @@ encodeTag tag =
         [ ( "id", Encode.int tag.id )
         , ( "label", Encode.string tag.label )
         , ( "description", Encode.string tag.description )
-        , ( "class", Encode.string tag.class )
+        , ( "type", Encode.string tag.class )
         ]
 
 

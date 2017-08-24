@@ -1,26 +1,26 @@
 [{
         "id": 1234,
         "label": "Article " ,
-        "description": "1234 - Article aa" 
-        ,"class": "article"
+        "description": "1234 - Article aa"
+        ,"type": "article"
     }, {
         "id": 1235,
         "label": "Article rosbief",
         "description": "1234 - Article bb"
-        ,"class": "article"
+        ,"type": "article"
     }, {
         "id": 1236,
         "label": "Articlecc",
         "description": "1234 - Article cc"
-        ,"class": "article"
+        ,"type": "article"
     }, {
         "id": 1237,
         "label": "Article dd",
         "description": "1234 - Article dd"
-        ,"class": "article"
+        ,"type": "article"
     }, {
         "id": 1238,
         "label": "Article ee" ,
         "description": "1234 - Article ee"
-        ,"class": "article"
+        ,"type": "article"
     }]
