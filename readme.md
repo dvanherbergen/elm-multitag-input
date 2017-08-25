@@ -58,7 +58,9 @@ npm start
 - input field wraps when still room left on same line
 
 ## TODO
-
+- make autofocus optional
+- allow paste of comma separated values
+- single type field cannot tab to next field once value is entered
 - arrow right should move to next list in dropdown
 - mouse selection doesn't work
 - update documentation
