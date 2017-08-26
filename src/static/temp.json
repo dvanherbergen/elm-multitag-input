@@ -13,6 +13,10 @@
         "label": "Articlecc",
         "description": "1234 - Article cc"
         ,"type": "article"
+        , "secret2" : {
+          "key" : "a"
+          , "code" : 3
+        }
     }, {
         "id": 1237,
         "label": "Article dd",
@@ -20,7 +24,9 @@
         ,"type": "article"
     }, {
         "id": 1238,
-        "label": "Article ee" ,
+        "label": "Article With Extra Tags" ,
         "description": "1234 - Article ee"
         ,"type": "article"
+        , "test-1" : "va"
+        , "test-2" : 1234
     }]

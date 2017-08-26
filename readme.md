@@ -14,10 +14,10 @@ This component is designed to be used as an embedded ELM component in JSF (integ
     "description" : "text to show in tag tooltip"
   }
 ```
-- Async. Users can enter a tag without waiting for the automplete option. Validation is done asynchronously afterwards. Invalid tags will get the 'invalid' class. 
+- Async. Users can enter a tag without waiting for the automplete option. Validation is done asynchronously afterwards. Invalid tags will get the 'invalid' class.
 - Multi-Type. Allow multiple types of tags to be mixed in the same field (or not...)
 - Multi-Value. The number of tags allowed is configurable.
-- Multi-section utocomplete. Autocompletion that supports multiple sections. One section per allowed tag type in the same field. 
+- Multi-section utocomplete. Autocompletion that supports multiple sections. One section per allowed tag type in the same field.
 - Callback on tag list change.
 
 
@@ -46,6 +46,23 @@ npm start
 
 
 
+## TODO
+- extra json attributes loaded via resolve are lost (from suggestions they are preserved)
+- selection use keys + enter in dropdown, also triggers resolve
+- click selection doesnt work -> depends on where you clicked
+- after deleting all initial tags, autocomplete stops working
+- remove id + description?
+- make autofocus optional
+- allow paste of comma separated values
+- single type field cannot tab to next field once value is entered
+- arrow right should move to next list in dropdown
+- mouse selection doesn't work
+- update documentation
+- live demo?
+
+* update flags to new format
+
+
 ## Done
 
 - focus on inputfield if clicked anywhere in mti-box
@@ -56,21 +73,3 @@ npm start
 - tabindex
 - pressing enter submits the form
 - input field wraps when still room left on same line
-
-## TODO
-- make autofocus optional
-- allow paste of comma separated values
-- single type field cannot tab to next field once value is entered
-- arrow right should move to next list in dropdown
-- mouse selection doesn't work
-- update documentation
-- live demo?
-
-* change json marshalling to class
-* set unknown as classtype for unresolvedtagbo
-* add width:6rem to mti-input css
-* add tabindex flag
-
-
-
-

@@ -1,6 +1,11 @@
 {
         "id": 1234,
         "label": "Resolved Article" ,
-        "description": "1234 - Article aa"
+        "description": "1234 - Article aab"
         ,"type": "article"
+        ,"secret" : "Payload"
+        , "secret2" : {
+          "key" : "a"
+          , "code" : 3
+        }
     }
