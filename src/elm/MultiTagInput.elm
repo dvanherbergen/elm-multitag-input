@@ -9,6 +9,7 @@ import Task
 import Json.Decode as Decode exposing (field, string, int)
 import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline
+import List exposing ((::))
 
 
 main : Program Flags Model Msg
@@ -27,6 +28,11 @@ main =
 ------------------------------}
 
 
+unknownType : String
+unknownType =
+    "unknown"
+
+
 type alias Model =
     { id : String
     , tags : List Tag
@@ -38,21 +44,20 @@ type alias Model =
     , inputVersion : Int
     , resolveURL : String
     , multiType : Bool
-    , multiValue : Bool
+    , size : Int
     , tabIndex : Int
+    , autoFocus : Bool
     }
 
 
 type alias Tag =
-    { id : Int
-    , label : String
-    , description : String
+    { label : String
     , typeName : String
     , source : Maybe Decode.Value
     }
 
 
-type alias TagTypeContainer =
+type alias TagType =
     { config : TagTypeConfig
     , suggestions : List Tag
     , enabled : Bool
@@ -60,19 +65,20 @@ type alias TagTypeContainer =
 
 
 type alias TagTypeConfig =
-    { name : String
-    , tagType : String
+    { title : String
+    , name : String
     , autoCompleteURL : String
     }
 
 
 type alias Flags =
-    { tagConfigs : List TagTypeConfig
+    { tagTypes : List TagTypeConfig
     , tagResolveURL : String
     , id : String
-©    , multiType : Bool
-    , multiValue : Bool
+    , multiType : Bool
+    , size : Int
     , tabIndex : Int
+    , autoFocus : Bool
     }
 
 
@@ -88,8 +94,9 @@ init flags =
         0
         flags.tagResolveURL
         flags.multiType
-        flags.multiValue
+        flags.size
         flags.tabIndex
+        flags.autoFocus
     , Cmd.none
     )
 
@@ -125,6 +132,7 @@ view model =
         ]
 
 
+renderTags : Model -> Html Msg
 renderTags model =
     model.tags
         |> List.map (renderTag model)
@@ -138,8 +146,8 @@ renderTag : Model -> Tag -> Html Msg
 renderTag model tag =
     let
         tagClass =
-            if (tag.tagType == "unknown" || (isTagTypeEnabled tag.tagType model)) then
-                tag.tagType
+            if (tag.typeName == unknownType || (isTagTypeEnabled tag.typeName model)) then
+                tag.typeName
             else
                 "error"
     in
@@ -154,38 +162,46 @@ renderTag model tag =
             ]
 
 
+renderInput : Model -> Html Msg
 renderInput model =
     let
-        tagAllowed =
-            isTagAllowed model.inputText model
+        duplicateEntry =
+            tagExists model.inputText model.tags
     in
         input
             [ id model.id
             , tabindex model.tabIndex
             , on "keydown" (Decode.map KeyDown keyCode)
             , onInput Input
-            , autofocus True
+            , autofocus model.autoFocus
             , autocomplete False
-            , onBlur HideSuggestions
             , value model.inputText
-            , if tagAllowed then
-                class ""
-              else
+            , if duplicateEntry then
                 class "mti-duplicate"
+              else
+                class ""
             ]
             []
 
 
+renderDropDown : Model -> Html Msg
 renderDropDown model =
     let
         renderDropDownSuggestionsAndHighlightSelected =
             renderDropDownSuggestions model
+
+        suggestionsAvailable =
+            model.tagTypes
+                |> List.filter (\t -> t.enabled && not (List.isEmpty t.suggestions))
+                |> List.isEmpty
+                |> not
     in
         div
-            [ if model.showSuggestions then
+            [ if model.showSuggestions && suggestionsAvailable then
                 class "mti-dropdown"
               else
                 class "mti-dropdown hidden"
+            , onMouseOut HideSuggestions
             ]
             (model.tagTypes
                 |> List.filter (\t -> t.enabled && not (List.isEmpty t.suggestions))
@@ -196,7 +212,7 @@ renderDropDown model =
 renderDropDownSuggestions : Model -> TagType -> Html Msg
 renderDropDownSuggestions model tagType =
     div []
-        [ label [] [ text tagType.config.name ]
+        [ label [] [ text tagType.config.title ]
         , ul
             []
             (List.map
@@ -206,6 +222,7 @@ renderDropDownSuggestions model tagType =
         ]
 
 
+renderDropDownEntry : Maybe Tag -> String -> Tag -> Html Msg
 renderDropDownEntry selectedSuggestion highlightText tag =
     let
         cssClass =
@@ -363,7 +380,7 @@ update msg model =
         ProcessSuggestions version tagTypeName (Ok suggestionList) ->
             let
                 populateSuggestions tagType =
-                    if tagType.config.tagType == tagType then
+                    if tagType.config.name == tagTypeName then
                         { tagType | suggestions = suggestionList }
                     else
                         tagType
@@ -378,7 +395,7 @@ update msg model =
                     , Cmd.none
                     )
 
-        ProcessSuggestions version tagType (Err e) ->
+        ProcessSuggestions version tagTypeName (Err e) ->
             { model | error = formatHttpErrorMessage e }
                 |> update Noop
 
@@ -401,16 +418,27 @@ update msg model =
                         String.trim model.inputText
                 in
                     if (model.inputText /= "" && isTagAllowed currentLabel model) then
-                        ( model
-                            |> saveTag currentLabel
-                            |> clearSuggestions
-                            |> updateEnabledTagTypes
-                        , Cmd.batch
-                            [ resolveTag currentLabel model
-                            , tagListOutput <| encodeTags model
-                            , focus model
-                            ]
-                        )
+                        let
+                            updatedModel =
+                                model
+                                    |> saveTag currentLabel
+                                    |> clearSuggestions
+                                    |> updateEnabledTagTypes
+
+                            unresolvedTags =
+                                updatedModel.tags
+                                    |> List.filter (\t -> t.typeName == unknownType)
+                                    |> List.map .label
+
+                            tasks =
+                                [ tagListOutput <| encodeTags updatedModel
+                                , focus updatedModel
+                                ]
+                                    |> List.append
+                                        (List.map (resolveTag updatedModel) unresolvedTags)
+                                    |> Cmd.batch
+                        in
+                            ( updatedModel, tasks )
                     else
                         ( model, Cmd.none )
             else if (key == 8 && model.inputText == "") then
@@ -536,7 +564,7 @@ incrementInputVersion model =
 
 newTag : String -> Tag
 newTag label =
-    Tag -1 label label "unknown" Nothing
+    Tag label unknownType Nothing
 
 
 saveTag : String -> Model -> Model
@@ -548,9 +576,37 @@ saveTag label model =
                     newTag label
 
                 Just tag ->
-                    tag
+                    if tag.label == label then
+                        tag
+                    else
+                        newTag label
     in
-        addTag tag model
+        if String.contains ";" label then
+            String.split ";" label
+                |> List.map newTag
+                |> List.take (model.size - List.length model.tags)
+                |> addTags model
+        else
+            addTag tag model
+
+
+addTags : Model -> List Tag -> Model
+addTags model tags =
+    if List.isEmpty tags then
+        model
+    else
+        let
+            updatedModel =
+                case List.head tags of
+                    Nothing ->
+                        model
+
+                    Just aTag ->
+                        addTag aTag model
+        in
+            tags
+                |> List.drop 1
+                |> addTags updatedModel
 
 
 addTag : Tag -> Model -> Model
@@ -589,7 +645,7 @@ updateTag : String -> Tag -> Model -> Model
 updateTag label resolvedTag model =
     let
         updatePlaceHolderTag tag =
-            if (tag.label == label && tag.tagType == "unknown") then
+            if (tag.label == label && tag.typeName == unknownType) then
                 resolvedTag
             else
                 tag
@@ -603,8 +659,8 @@ markTagInvalid : String -> Model -> Model
 markTagInvalid label model =
     let
         updateTagStatus tag =
-            if (tag.label == label && tag.tagType == "unknown") then
-                { tag | tagType = "error" }
+            if (tag.label == label && tag.typeName == unknownType) then
+                { tag | typeName = "error" }
             else
                 tag
     in
@@ -621,7 +677,7 @@ isTagAllowed label model =
 
 isNewTagAllowed : Model -> Bool
 isNewTagAllowed model =
-    (model.multiValue || (List.length model.tags == 0))
+    List.length model.tags < model.size
 
 
 tagExists : String -> List Tag -> Bool
@@ -633,9 +689,9 @@ tagExists label tags =
 
 
 isTagTypeEnabled : String -> Model -> Bool
-isTagTypeEnabled tagType model =
+isTagTypeEnabled tagTypeName model =
     model.tagTypes
-        |> List.filter (\c -> c.enabled && c.config.tagType == tagType)
+        |> List.filter (\c -> c.enabled && c.config.name == tagTypeName)
         |> List.isEmpty
         |> not
 
@@ -648,15 +704,15 @@ updateEnabledTagTypes model =
         let
             firstTagType =
                 model.tags
-                    |> List.filter (\t -> t.tagType /= "")
+                    |> List.filter (\t -> t.typeName /= unknownType)
                     |> List.head
                     |> Maybe.withDefault (newTag "")
-                    |> .tagType
+                    |> .typeName
 
             updatedTypes =
                 model.tagTypes
                     |> List.map
-                        (\t -> { t | enabled = (firstTagType == "" || t.config.tagType == firstTagType) })
+                        (\t -> { t | enabled = (firstTagType == unknownType || t.config.name == firstTagType) })
         in
             { model | tagTypes = updatedTypes }
 
@@ -798,16 +854,16 @@ formatHttpErrorMessage error =
             "Network error"
 
 
+decodeTag : Decode.Decoder Tag
 decodeTag =
     Decode.value
         |> Decode.andThen decodeTagContent
 
 
+decodeTagContent : Decode.Value -> Decode.Decoder Tag
 decodeTagContent json =
     Pipeline.decode Tag
-        |> Pipeline.required "id" int
         |> Pipeline.required "label" string
-        |> Pipeline.required "description" string
         |> Pipeline.required "type" string
         |> Pipeline.hardcoded (Just json)
 
@@ -818,10 +874,8 @@ encodeTag tag =
         Nothing ->
             -- manually entered tags that haven't been resolved
             Encode.object
-                [ ( "id", Encode.int tag.id )
-                , ( "label", Encode.string tag.label )
-                , ( "description", Encode.string tag.description )
-                , ( "type", Encode.string tag.tagType )
+                [ ( "label", Encode.string tag.label )
+                , ( "type", Encode.string tag.typeName )
                 ]
 
         Just json ->
@@ -832,11 +886,11 @@ encodeTag tag =
 fetchSuggestions : Int -> String -> TagType -> Cmd Msg
 fetchSuggestions version text tagType =
     if String.length text > 2 && tagType.enabled then
-        Http.send (ProcessSuggestions version tagType.config.tagType) (Http.get (tagType.config.autoCompleteURL ++ text) (Decode.list decodeTag))
+        Http.send (ProcessSuggestions version tagType.config.name) (Http.get (tagType.config.autoCompleteURL ++ text) (Decode.list decodeTag))
     else
         Cmd.none
 
 
-resolveTag : String -> Model -> Cmd Msg
-resolveTag label model =
+resolveTag : Model -> String -> Cmd Msg
+resolveTag model label =
     Http.send (TagResponse label) (Http.get (model.resolveURL ++ label) decodeTag)

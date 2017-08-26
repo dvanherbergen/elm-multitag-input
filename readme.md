@@ -19,6 +19,13 @@ This component is designed to be used as an embedded ELM component in JSF (integ
 - Multi-Value. The number of tags allowed is configurable.
 - Multi-section utocomplete. Autocompletion that supports multiple sections. One section per allowed tag type in the same field.
 - Callback on tag list change.
+- Supports ; separated tag entry. Entering a string tag1;tag2 will expand into two tags.
+
+## Config flags:
+
+- size : maximum number of tags that may be entered
+- multiType : true allows different types of tags to be mixed in the same field. when false, the first tag entered determines the tag type for the remaining values in the field.
+
 
 
 ## Usage
@@ -47,24 +54,24 @@ npm start
 
 
 ## TODO
-- extra json attributes loaded via resolve are lost (from suggestions they are preserved)
+
 - selection use keys + enter in dropdown, also triggers resolve
-- click selection doesnt work -> depends on where you clicked
-- after deleting all initial tags, autocomplete stops working
-- remove id + description?
-- make autofocus optional
-- allow paste of comma separated values
-- single type field cannot tab to next field once value is entered
+- mouse selection doesnt work -> depends on where you clicked (testd -> click)
 - arrow right should move to next list in dropdown
-- mouse selection doesn't work
 - update documentation
-- live demo?
+- live demo? or pics?
 
-* update flags to new format
-
+* update flags to new format (names/autocomplete)
+* remove id + description from Tag interface
 
 ## Done
-
+- allow paste of comma separated values
+- empty dropdown is not hidden
+- remove id + description
+- after deleting all initial tags, autocomplete stops working
+- single type field cannot tab to next field once value is entered
+- make autofocus optional
+- extra json attributes loaded via resolve are lost
 - focus on inputfield if clicked anywhere in mti-box
 - enter text + press tab iso enter -> no tag added
 - do not show suggestions if no result was found
