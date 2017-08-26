@@ -55,9 +55,6 @@ npm start
 
 ## TODO
 
-- selection use keys + enter in dropdown, also triggers resolve
-- mouse selection doesnt work -> depends on where you clicked (testd -> click)
-- arrow right should move to next list in dropdown
 - update documentation
 - live demo? or pics?
 
@@ -65,6 +62,10 @@ npm start
 * remove id + description from Tag interface
 
 ## Done
+
+- selection use keys + enter in dropdown, also triggers resolve
+- arrow right should move to next list in dropdown
+- mouse selection doesnt work -> depends on where you clicked (testd -> click)
 - allow paste of comma separated values
 - empty dropdown is not hidden
 - remove id + description

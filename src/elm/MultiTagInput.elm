@@ -120,6 +120,7 @@ view : Model -> Html Msg
 view model =
     div
         [ onKeyDownPreventDefault (model.inputText == "") (not <| isNewTagAllowed model)
+        , onMouseLeave HideSuggestions
         ]
         [ div
             [ class "mti-box"
@@ -201,7 +202,6 @@ renderDropDown model =
                 class "mti-dropdown"
               else
                 class "mti-dropdown hidden"
-            , onMouseOut HideSuggestions
             ]
             (model.tagTypes
                 |> List.filter (\t -> t.enabled && not (List.isEmpty t.suggestions))
@@ -454,6 +454,11 @@ update msg model =
                         , focus updatedModel
                         ]
                     )
+            else if (key == 37) then
+                model
+                    |> selectSuggestionInPreviousBlock
+                    |> setInputTextToSuggestion
+                    |> update Noop
             else if (key == 38) then
                 model
                     |> selectPreviousSuggestion
@@ -583,6 +588,7 @@ saveTag label model =
     in
         if String.contains ";" label then
             String.split ";" label
+                |> List.filter (\s -> s /= "")
                 |> List.map newTag
                 |> List.take (model.size - List.length model.tags)
                 |> addTags model
@@ -747,6 +753,8 @@ substringList fromValue list =
         )
         []
         list
+        |> List.reverse
+        |> List.drop 1
 
 
 selectSuggestionInNextBlock : Model -> Model
@@ -757,26 +765,52 @@ selectSuggestionInNextBlock model =
 
         Just selectedTag ->
             let
-                suggestions =
-                    getAllSuggestions model
-
-                suggestionsStartingFromCurrent =
-                    substringList selectedTag suggestions
-
                 firstSuggestionWithDifferentTagType =
-                    suggestionsStartingFromCurrent
-                        |> List.drop 1
+                    getAllSuggestions model
+                        |> substringList selectedTag
+                        |> List.filter (\t -> t.typeName /= selectedTag.typeName)
                         |> List.head
             in
-                case firstSuggestionWithDifferentTagType of
+                { model
+                    | selectedSuggestion =
+                        firstSuggestionWithDifferentTagType
+                }
+
+
+selectSuggestionInPreviousBlock : Model -> Model
+selectSuggestionInPreviousBlock model =
+    case model.selectedSuggestion of
+        Nothing ->
+            model
+
+        Just selectedTag ->
+            let
+                previousTagTypeName =
+                    model.tagTypes
+                        |> List.map .config
+                        |> List.map .name
+                        |> List.reverse
+                        |> substringList selectedTag.typeName
+                        |> List.head
+            in
+                case previousTagTypeName of
                     Nothing ->
                         model
 
-                    Just tag ->
-                        { model
-                            | selectedSuggestion =
-                                Just tag
-                        }
+                    Just typeName ->
+                        let
+                            previousTagWithDifferentType =
+                                model.tagTypes
+                                    |> List.filter (\t -> t.config.name == typeName)
+                                    |> List.take 1
+                                    |> List.map (\t -> t.suggestions)
+                                    |> List.concat
+                                    |> List.head
+                        in
+                            { model
+                                | selectedSuggestion =
+                                    previousTagWithDifferentType
+                            }
 
 
 getAllSuggestions : Model -> List Tag
