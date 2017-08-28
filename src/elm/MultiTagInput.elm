@@ -10,6 +10,7 @@ import Json.Decode as Decode exposing (field, string, int)
 import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline
 import List exposing ((::))
+import Debug exposing (log)
 
 
 main : Program Flags Model Msg
@@ -124,7 +125,6 @@ view model =
         ]
         [ div
             [ class "mti-box"
-            , alt model.error
             , onClick Focus
             ]
             [ renderTags model
@@ -285,7 +285,12 @@ onKeyDownPreventDefault allowSubmit blockTextEntry =
                     Decode.succeed NotifyFormSubmitted
                 else
                     Decode.succeed Noop
-            else if blockTextEntry then
+            else if code == 9 then
+                if allowSubmit then
+                    Decode.fail "nothing prevented..."
+                else
+                    Decode.succeed Noop
+            else if (blockTextEntry && code /= 27) then
                 Decode.succeed Noop
             else
                 Decode.fail "nothing prevented..."
@@ -337,6 +342,7 @@ type Msg
     | TagResponse String (Result Http.Error Tag)
     | HideSuggestions
     | NotifyTagsChanged
+    | AfterTagChange
     | SetTags String
     | NotifyFormSubmitted
 
@@ -411,61 +417,52 @@ update msg model =
                 |> updateEnabledTagTypes
                 |> update NotifyTagsChanged
 
+        AfterTagChange ->
+            let
+                unresolvedTags =
+                    model.tags
+                        |> List.filter (\t -> t.typeName == unknownType)
+                        |> List.map .label
+            in
+                ( model
+                , List.map (resolveTag model) unresolvedTags
+                    |> List.append
+                        [ tagListOutput <| encodeTags model
+                        , focus model
+                        ]
+                    |> Cmd.batch
+                )
+
         KeyDown key ->
-            if key == 13 || key == 9 then
+            if (key == 13 || key == 9) && isNewTagAllowed model && model.inputText /= "" then
                 let
                     currentLabel =
                         String.trim model.inputText
-                in
-                   case model.selectedSuggestion of
-                    Nothing ->
-                        if (model.inputText /= "" && isTagAllowed currentLabel model) then
-                            let
-                                updatedModel =
-                                    model
-                                        |> saveTag currentLabel
-                                        |> clearSuggestions
-                                        |> updateEnabledTagTypes
 
-                                unresolvedTags =
-                                    updatedModel.tags
-                                        |> List.filter (\t -> t.typeName == unknownType)
-                                        |> List.map .label
-
-                                tasks =
-                                    [ tagListOutput <| encodeTags updatedModel
-                                    , focus updatedModel
-                                    ]
-                                        |> List.append
-                                            (List.map (resolveTag updatedModel) unresolvedTags)
-                                        |> Cmd.batch
-                            in
-                                ( updatedModel, tasks )
-                        else
-                            ( model, Cmd.none )
-                   Just aTag ->
-                        let updatedModel =
-                            model
-                                |> addTag aTag
-                                |> clearSuggestions
-                        in
-                         ( updatedModel, Cmd.batch [
-                          tagListOutput <| encodeTags updatedModel
-                          , focus updatedModel
-                         ])
-            else if (key == 8 && model.inputText == "") then
-                let
                     updatedModel =
-                        model
-                            |> deleteLastTag
-                            |> updateEnabledTagTypes
+                        case model.selectedSuggestion of
+                            Nothing ->
+                                if isTagAllowed currentLabel model then
+                                    saveTag currentLabel model
+                                else
+                                    model
+
+                            Just aTag ->
+                                addTag aTag model
                 in
-                    ( updatedModel
-                    , Cmd.batch
-                        [ tagListOutput <| encodeTags updatedModel
-                        , focus updatedModel
-                        ]
-                    )
+                    updatedModel
+                        |> clearSuggestions
+                        |> updateEnabledTagTypes
+                        |> update AfterTagChange
+            else if (key == 27) then
+                model
+                    |> clearSuggestions
+                    |> update Noop
+            else if (key == 8 && model.inputText == "") then
+                model
+                    |> deleteLastTag
+                    |> updateEnabledTagTypes
+                    |> update AfterTagChange
             else if (key == 37) then
                 model
                     |> selectSuggestionInPreviousBlock
@@ -490,25 +487,17 @@ update msg model =
                 ( model, Cmd.none )
 
         RemoveTag label ->
-            let
-                updatedModel =
-                    model
-                        |> removeTag label
-                        |> updateEnabledTagTypes
-            in
-                ( updatedModel
-                , Cmd.batch
-                    [ tagListOutput <| encodeTags updatedModel
-                    , focus updatedModel
-                    ]
-                )
+            model
+                |> removeTag label
+                |> updateEnabledTagTypes
+                |> update AfterTagChange
 
         SelectTag tag ->
             model
                 |> addTag tag
                 |> clearSuggestions
                 |> updateEnabledTagTypes
-                |> update Focus
+                |> update AfterTagChange
 
         Focus ->
             ( model, focus model )
@@ -689,8 +678,11 @@ markTagInvalid label model =
 
 isTagAllowed : String -> Model -> Bool
 isTagAllowed label model =
-    isNewTagAllowed model
-        && not (tagExists label model.tags)
+    let
+        currentLabel =
+            String.trim model.inputText
+    in
+        currentLabel /= "" && isNewTagAllowed model && not (tagExists currentLabel model.tags)
 
 
 isNewTagAllowed : Model -> Bool
@@ -885,19 +877,19 @@ formatHttpErrorMessage : Http.Error -> String
 formatHttpErrorMessage error =
     case error of
         Http.BadUrl desc ->
-            "Bad url: " ++ desc
+            log "Error" <| "Bad url: " ++ desc
 
         Http.Timeout ->
-            "Connection Timeout"
+            log "Error" <| "Connection Timeout"
 
         Http.BadStatus response ->
-            "Bad status: HTTP " ++ toString response.status ++ " : " ++ response.body
+            log "Error" <| "Bad status: HTTP " ++ toString response.status ++ " : " ++ response.body
 
         Http.BadPayload message response ->
-            "Unexpected Payload: " ++ message
+            log "Error" <| "Unexpected Payload: " ++ message
 
         Http.NetworkError ->
-            "Network error"
+            log "Error" "Network error"
 
 
 decodeTag : Decode.Decoder Tag

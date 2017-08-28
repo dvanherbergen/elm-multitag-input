@@ -54,8 +54,6 @@ npm start
 
 
 ## TODO
-- when size is 1, tab doesn't work
-- when selecting from dropdown, resolve is triggered
 
 - update documentation
 - live demo? or pics?
@@ -63,6 +61,8 @@ npm start
 
 ## Done
 
+- when selecting from dropdown, resolve is triggered
+- when size is 1, tab doesn't work
 - selection use keys + enter in dropdown, also triggers resolve
 - arrow right should move to next list in dropdown
 - mouse selection doesnt work -> depends on where you clicked (testd -> click)

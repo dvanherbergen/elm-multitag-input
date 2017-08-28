@@ -24,7 +24,7 @@ var app = Elm.Main.embed(
       ],
      "tagResolveURL" : "http://localhost:8080/static/resolve.json?q=",
     "multiType" : false,
-    "size" : 4,
+    "size" : 3,
     "tabIndex" : 1,
     "id" : "ex1",
     "autoFocus" : true
