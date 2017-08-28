@@ -124,10 +124,10 @@ view model =
         ]
         [ div
             [ class "mti-box"
+            , alt model.error
             , onClick Focus
             ]
-            [ text model.error
-            , renderTags model
+            [ renderTags model
             ]
         , renderDropDown model
         ]
@@ -417,30 +417,42 @@ update msg model =
                     currentLabel =
                         String.trim model.inputText
                 in
-                    if (model.inputText /= "" && isTagAllowed currentLabel model) then
-                        let
-                            updatedModel =
-                                model
-                                    |> saveTag currentLabel
-                                    |> clearSuggestions
-                                    |> updateEnabledTagTypes
+                   case model.selectedSuggestion of
+                    Nothing ->
+                        if (model.inputText /= "" && isTagAllowed currentLabel model) then
+                            let
+                                updatedModel =
+                                    model
+                                        |> saveTag currentLabel
+                                        |> clearSuggestions
+                                        |> updateEnabledTagTypes
 
-                            unresolvedTags =
-                                updatedModel.tags
-                                    |> List.filter (\t -> t.typeName == unknownType)
-                                    |> List.map .label
+                                unresolvedTags =
+                                    updatedModel.tags
+                                        |> List.filter (\t -> t.typeName == unknownType)
+                                        |> List.map .label
 
-                            tasks =
-                                [ tagListOutput <| encodeTags updatedModel
-                                , focus updatedModel
-                                ]
-                                    |> List.append
-                                        (List.map (resolveTag updatedModel) unresolvedTags)
-                                    |> Cmd.batch
+                                tasks =
+                                    [ tagListOutput <| encodeTags updatedModel
+                                    , focus updatedModel
+                                    ]
+                                        |> List.append
+                                            (List.map (resolveTag updatedModel) unresolvedTags)
+                                        |> Cmd.batch
+                            in
+                                ( updatedModel, tasks )
+                        else
+                            ( model, Cmd.none )
+                   Just aTag ->
+                        let updatedModel =
+                            model
+                                |> addTag aTag
+                                |> clearSuggestions
                         in
-                            ( updatedModel, tasks )
-                    else
-                        ( model, Cmd.none )
+                         ( updatedModel, Cmd.batch [
+                          tagListOutput <| encodeTags updatedModel
+                          , focus updatedModel
+                         ])
             else if (key == 8 && model.inputText == "") then
                 let
                     updatedModel =

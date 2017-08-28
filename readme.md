@@ -54,12 +54,12 @@ npm start
 
 
 ## TODO
+- when size is 1, tab doesn't work
+- when selecting from dropdown, resolve is triggered
 
 - update documentation
 - live demo? or pics?
 
-* update flags to new format (names/autocomplete)
-* remove id + description from Tag interface
 
 ## Done
 
