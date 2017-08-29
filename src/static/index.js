@@ -35,11 +35,6 @@ app.ports.tagListOutput.subscribe(function(tags) {
         console.log('TAGS: ' + tags);
     });
 
-
-app.ports.formSubmitEvent.subscribe(function() {
-        alert('Submit form here...');
-    });
-
 app.ports.tagListInput.send(`[
 {
         "id": 1234,

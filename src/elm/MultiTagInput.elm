@@ -120,7 +120,7 @@ initTagTypes configs =
 view : Model -> Html Msg
 view model =
     div
-        [ onKeyDownPreventDefault (model.inputText == "") (not <| isNewTagAllowed model)
+        [ onKeyDownFilter (model.inputText == "") (not <| isNewTagAllowed model)
         , onMouseLeave HideSuggestions
         ]
         [ div
@@ -273,19 +273,17 @@ renderDropDownEntry selectedSuggestion highlightText tag =
 {-| Prevent text being entered if no more tags are allowed
     and only allow submit of form when all text input has been processed
 -}
-onKeyDownPreventDefault : Bool -> Bool -> Attribute Msg
-onKeyDownPreventDefault allowSubmit blockTextEntry =
+onKeyDownFilter : Bool -> Bool -> Attribute Msg
+onKeyDownFilter allowSubmit blockTextEntry =
     let
         options =
-            { defaultOptions | preventDefault = True }
+            { defaultOptions
+                | preventDefault = True
+                , stopPropagation = True
+            }
 
         filterKey code =
-            if code == 13 then
-                if allowSubmit then
-                    Decode.succeed NotifyFormSubmitted
-                else
-                    Decode.succeed Noop
-            else if code == 9 then
+            if code == 13 || code == 9 then
                 if allowSubmit then
                     Decode.fail "nothing prevented..."
                 else
@@ -318,12 +316,6 @@ port tagListOutput : String -> Cmd msg
 port tagListInput : (String -> msg) -> Sub msg
 
 
-{-| Port that allows JS to subscribe to form submit events in the field.
-    The submit event is triggered when the user presses Enter whilst no Tag is being entered.
--}
-port formSubmitEvent : String -> Cmd msg
-
-
 
 {------------------------------
     UPDATE
@@ -344,7 +336,6 @@ type Msg
     | NotifyTagsChanged
     | AfterTagChange
     | SetTags String
-    | NotifyFormSubmitted
 
 
 subscriptions : Model -> Sub Msg
@@ -504,9 +495,6 @@ update msg model =
 
         NotifyTagsChanged ->
             ( model, tagListOutput <| encodeTags model )
-
-        NotifyFormSubmitted ->
-            ( model, formSubmitEvent "" )
 
         SetTags value ->
             let
