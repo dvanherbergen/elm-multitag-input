@@ -11,6 +11,9 @@ import Json.Encode as Encode
 import Json.Decode.Pipeline as Pipeline
 import List exposing ((::))
 import Debug exposing (log)
+import Time
+import Control exposing (Control)
+import Control.Debounce as Debounce
 
 
 main : Program Flags Model Msg
@@ -48,6 +51,7 @@ type alias Model =
     , size : Int
     , tabIndex : Int
     , autoFocus : Bool
+    , debounceState : Control.State Msg
     }
 
 
@@ -98,6 +102,7 @@ init flags =
         flags.size
         flags.tabIndex
         flags.autoFocus
+        Control.initialState
     , Cmd.none
     )
 
@@ -336,6 +341,7 @@ type Msg
     | NotifyTagsChanged
     | AfterTagChange
     | SetTags String
+    | Debounce (Control Msg)
 
 
 subscriptions : Model -> Sub Msg
@@ -358,7 +364,7 @@ update msg model =
                         |> incrementInputVersion
             in
                 if (String.length text > 2) then
-                    update (FetchSuggestions updatedModel.inputVersion text) updatedModel
+                    update (debounce <| FetchSuggestions updatedModel.inputVersion text) updatedModel
                 else
                     updatedModel
                         |> clearSuggestions
@@ -515,6 +521,17 @@ update msg model =
                 { model | tags = tagValues }
                     |> updateEnabledTagTypes
                     |> update Noop
+
+        Debounce control ->
+            Control.update
+                (\newState -> { model | debounceState = newState })
+                model.debounceState
+                control
+
+
+debounce : Msg -> Msg
+debounce =
+    Debounce.trailing Debounce (220 * Time.millisecond)
 
 
 encodeTags : Model -> String
