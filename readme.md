@@ -66,7 +66,13 @@ app.ports.tagListOutput.subscribe(function(tags) {
 ```
 npm install
 npm run build
+
+elm-package install
+elm-make src\elm\MultiTagInput.elm --output MultiTagInput.js
+
 ```
+
+
 
 ## Serve locally
 

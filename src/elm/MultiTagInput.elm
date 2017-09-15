@@ -531,7 +531,7 @@ update msg model =
 
 debounce : Msg -> Msg
 debounce =
-    Debounce.trailing Debounce (220 * Time.millisecond)
+    Debounce.trailing Debounce (175 * Time.millisecond)
 
 
 encodeTags : Model -> String
