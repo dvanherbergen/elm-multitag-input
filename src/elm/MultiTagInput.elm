@@ -3,6 +3,7 @@ port module Main exposing (..)
 import Html exposing (..)
 import Html.Events exposing (..)
 import Html.Attributes exposing (..)
+import Html.Keyed as Keyed
 import Http
 import Dom
 import Task
@@ -41,11 +42,12 @@ type alias Model =
     { id : String
     , tags : List Tag
     , inputText : String
+    , inputTextVersion : Int
+    , inputFieldVersion : Int
     , tagTypes : List TagType
     , showSuggestions : Bool
     , selectedSuggestion : Maybe Tag
     , error : String
-    , inputVersion : Int
     , resolveURL : String
     , multiType : Bool
     , size : Int
@@ -92,11 +94,12 @@ init flags =
     ( Model flags.id
         []
         ""
+        0
+        0
         (initTagTypes flags.tagTypes)
         False
         Nothing
         ""
-        0
         flags.tagResolveURL
         flags.multiType
         flags.size
@@ -138,6 +141,10 @@ view model =
         ]
 
 
+{-| Render the tags and the input field. To avoid the race condition bug described in
+ https://github.com/evancz/elm-html/pull/81 we use keyed nodes and the
+ defaultValue attribute to update the input field contents.
+-}
 renderTags : Model -> Html Msg
 renderTags model =
     model.tags
@@ -145,10 +152,10 @@ renderTags model =
         |> List.reverse
         |> List.append [ renderInput model ]
         |> List.reverse
-        |> ul []
+        |> Keyed.ul []
 
 
-renderTag : Model -> Tag -> Html Msg
+renderTag : Model -> Tag -> ( String, Html Msg )
 renderTag model tag =
     let
         tagClass =
@@ -157,7 +164,8 @@ renderTag model tag =
             else
                 "error"
     in
-        li
+        ( tag.label
+        , li
             [ class tagClass ]
             [ text tag.label
             , span
@@ -166,28 +174,31 @@ renderTag model tag =
                 ]
                 []
             ]
+        )
 
 
-renderInput : Model -> Html Msg
+renderInput : Model -> ( String, Html Msg )
 renderInput model =
     let
         duplicateEntry =
             tagExists model.inputText model.tags
     in
-        input
+        ( toString model.inputFieldVersion
+        , input
             [ id model.id
             , tabindex model.tabIndex
             , on "keydown" (Decode.map KeyDown keyCode)
             , onInput Input
             , autofocus model.autoFocus
             , autocomplete False
-            , value model.inputText
+            , defaultValue model.inputText
             , if duplicateEntry then
                 class "mti-duplicate"
               else
                 class ""
             ]
             []
+        )
 
 
 renderDropDown : Model -> Html Msg
@@ -361,10 +372,10 @@ update msg model =
                     { model
                         | inputText = text
                     }
-                        |> incrementInputVersion
+                        |> incrementinputTextVersion
             in
                 if (String.length text > 2) then
-                    update (debounce <| FetchSuggestions updatedModel.inputVersion text) updatedModel
+                    update (debounce <| FetchSuggestions updatedModel.inputTextVersion text) updatedModel
                 else
                     updatedModel
                         |> clearSuggestions
@@ -388,7 +399,7 @@ update msg model =
                     else
                         tagType
             in
-                if (model.inputVersion > version) then
+                if (model.inputTextVersion > version) then
                     update Noop model
                 else
                     ( { model
@@ -463,23 +474,27 @@ update msg model =
             else if (key == 37) then
                 model
                     |> selectSuggestionInPreviousBlock
-                    |> setInputTextToSuggestion
                     |> update Noop
+                --|> setInputTextToSuggestion
+                --|> update Focus
             else if (key == 38) then
                 model
                     |> selectPreviousSuggestion
-                    |> setInputTextToSuggestion
                     |> update Noop
+                --|> setInputTextToSuggestion
+                --|> update Focus
             else if (key == 39) then
                 model
                     |> selectSuggestionInNextBlock
-                    |> setInputTextToSuggestion
                     |> update Noop
+                --|> setInputTextToSuggestion
+                --|> update Focus
             else if (key == 40) then
                 model
                     |> selectNextSuggestion
-                    |> setInputTextToSuggestion
                     |> update Noop
+                --|> setInputTextToSuggestion
+                --|> update Focus
             else
                 ( model, Cmd.none )
 
@@ -566,10 +581,20 @@ clearSuggestions model =
         }
 
 
-incrementInputVersion : Model -> Model
-incrementInputVersion model =
+incrementinputTextVersion : Model -> Model
+incrementinputTextVersion model =
     { model
-        | inputVersion = model.inputVersion + 1
+        | inputTextVersion = model.inputTextVersion + 1
+    }
+
+
+{-| By incrementing the key of our input field, the full field will
+be discarded and rerendered using defaultValue as the content.
+-}
+updateInputField : Model -> Model
+updateInputField model =
+    { model
+        | inputFieldVersion = model.inputFieldVersion + 1
     }
 
 
@@ -632,7 +657,8 @@ addTag tag model =
         , inputText = ""
         , selectedSuggestion = Nothing
     }
-        |> incrementInputVersion
+        |> incrementinputTextVersion
+        |> updateInputField
 
 
 removeTag : String -> Model -> Model
@@ -855,7 +881,8 @@ setInputTextToSuggestion model =
                     tag.label
     in
         { model | inputText = t }
-            |> incrementInputVersion
+            |> incrementinputTextVersion
+            |> updateInputField
 
 
 getNext : a -> List a -> Maybe a

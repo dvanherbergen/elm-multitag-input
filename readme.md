@@ -89,6 +89,7 @@ npm start
 
 
 ## TODO
-
+- race condition bug
+- filter arrow/up down default actions
 - update documentation
 - live demo? or pics?
