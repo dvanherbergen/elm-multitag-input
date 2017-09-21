@@ -450,7 +450,7 @@ update msg model =
                     updatedModel =
                         case model.selectedSuggestion of
                             Nothing ->
-                                if isTagAllowed currentLabel model then
+                                if currentLabel /= "" && isTagAllowed currentLabel model then
                                     saveTag currentLabel model
                                 else
                                     model
@@ -709,11 +709,7 @@ markTagInvalid label model =
 
 isTagAllowed : String -> Model -> Bool
 isTagAllowed label model =
-    let
-        currentLabel =
-            String.trim model.inputText
-    in
-        currentLabel /= "" && isNewTagAllowed model && not (tagExists currentLabel model.tags)
+    isNewTagAllowed model && not (tagExists label model.tags)
 
 
 isNewTagAllowed : Model -> Bool
