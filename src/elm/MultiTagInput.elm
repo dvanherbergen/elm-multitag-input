@@ -731,7 +731,7 @@ tagExists label tags =
 isTagTypeDisabled : String -> Model -> Bool
 isTagTypeDisabled tagTypeName model =
     model.tagTypes
-        |> List.filter (\c -> not c.enabled && c.config.name == tagTypeName)
+        |> List.filter (\c -> (not c.enabled) && c.config.name == tagTypeName)
         |> List.isEmpty
         |> not
 
@@ -742,9 +742,13 @@ updateEnabledTagTypes model =
         model
     else
         let
+            definedTagTypes =
+                model.tagTypes
+                    |> List.map .config
+                    |> List.map .name
             firstTagType =
                 model.tags
-                    |> List.filter (\t -> t.typeName /= unknownType && t.typeName /= errorType)
+                    |> List.filter (\t ->  List.member t.typeName definedTagTypes)
                     |> List.head
                     |> Maybe.withDefault (newTag "")
                     |> .typeName
