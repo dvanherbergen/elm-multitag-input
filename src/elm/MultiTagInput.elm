@@ -37,6 +37,9 @@ unknownType : String
 unknownType =
     "unknown"
 
+errorType : String
+errorType =
+    "error"
 
 type alias Model =
     { id : String
@@ -159,10 +162,10 @@ renderTag : Model -> Tag -> ( String, Html Msg )
 renderTag model tag =
     let
         tagClass =
-            if (tag.typeName == unknownType || (isTagTypeEnabled tag.typeName model)) then
-                tag.typeName
+            if (isTagTypeDisabled tag.typeName model) then
+                errorType
             else
-                "error"
+                tag.typeName
     in
         ( tag.label
         , li
@@ -698,7 +701,7 @@ markTagInvalid label model =
     let
         updateTagStatus tag =
             if (tag.label == label && tag.typeName == unknownType) then
-                { tag | typeName = "error" }
+                { tag | typeName = errorType }
             else
                 tag
     in
@@ -725,10 +728,10 @@ tagExists label tags =
         |> not
 
 
-isTagTypeEnabled : String -> Model -> Bool
-isTagTypeEnabled tagTypeName model =
+isTagTypeDisabled : String -> Model -> Bool
+isTagTypeDisabled tagTypeName model =
     model.tagTypes
-        |> List.filter (\c -> c.enabled && c.config.name == tagTypeName)
+        |> List.filter (\c -> not c.enabled && c.config.name == tagTypeName)
         |> List.isEmpty
         |> not
 
@@ -741,7 +744,7 @@ updateEnabledTagTypes model =
         let
             firstTagType =
                 model.tags
-                    |> List.filter (\t -> t.typeName /= unknownType && t.typeName /= "error")
+                    |> List.filter (\t -> t.typeName /= unknownType && t.typeName /= errorType)
                     |> List.head
                     |> Maybe.withDefault (newTag "")
                     |> .typeName
