@@ -741,7 +741,7 @@ updateEnabledTagTypes model =
         let
             firstTagType =
                 model.tags
-                    |> List.filter (\t -> t.typeName /= unknownType)
+                    |> List.filter (\t -> t.typeName /= unknownType && t.typeName /= "error")
                     |> List.head
                     |> Maybe.withDefault (newTag "")
                     |> .typeName
