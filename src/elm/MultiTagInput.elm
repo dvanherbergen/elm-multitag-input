@@ -37,9 +37,11 @@ unknownType : String
 unknownType =
     "unknown"
 
+
 errorType : String
 errorType =
     "error"
+
 
 type alias Model =
     { id : String
@@ -51,7 +53,6 @@ type alias Model =
     , showSuggestions : Bool
     , selectedSuggestion : Maybe Tag
     , error : String
-    , resolveURL : String
     , multiType : Bool
     , size : Int
     , tabIndex : Int
@@ -62,7 +63,10 @@ type alias Model =
 
 type alias Tag =
     { label : String
-    , typeName : String
+    , typeName :
+        String
+        -- , cssClass : String
+    , pendingResolveURLs : List String
     , source : Maybe Decode.Value
     }
 
@@ -78,12 +82,12 @@ type alias TagTypeConfig =
     { title : String
     , name : String
     , autoCompleteURL : String
+    , resolveURL : String
     }
 
 
 type alias Flags =
     { tagTypes : List TagTypeConfig
-    , tagResolveURL : String
     , id : String
     , multiType : Bool
     , size : Int
@@ -103,7 +107,6 @@ init flags =
         False
         Nothing
         ""
-        flags.tagResolveURL
         flags.multiType
         flags.size
         flags.tabIndex
@@ -302,8 +305,13 @@ onKeyDownFilter allowSubmit blockTextEntry =
             }
 
         filterKey code =
-            if code == 13 || code == 9 then
+            if code == 13 then
                 if allowSubmit then
+                    Decode.fail "nothing prevented..."
+                else
+                    Decode.succeed Noop
+            else if code == 9 then
+                if allowSubmit || blockTextEntry then
                     Decode.fail "nothing prevented..."
                 else
                     Decode.succeed Noop
@@ -350,7 +358,7 @@ type Msg
     | Focus
     | FetchSuggestions Int String
     | ProcessSuggestions Int String (Result Http.Error (List Tag))
-    | TagResponse String (Result Http.Error Tag)
+    | TagResponse String String (Result Http.Error Tag)
     | HideSuggestions
     | NotifyTagsChanged
     | AfterTagChange
@@ -416,33 +424,27 @@ update msg model =
             { model | error = formatHttpErrorMessage e }
                 |> update Noop
 
-        TagResponse label (Ok tag) ->
+        TagResponse label url (Ok tag) ->
             model
                 |> updateTag label tag
                 |> updateEnabledTagTypes
                 |> update NotifyTagsChanged
 
-        TagResponse label (Err e) ->
+        TagResponse label url (Err e) ->
             { model | error = formatHttpErrorMessage e }
-                |> markTagInvalid label
+                |> markTagInvalid label url
                 |> updateEnabledTagTypes
                 |> update NotifyTagsChanged
 
         AfterTagChange ->
-            let
-                unresolvedTags =
-                    model.tags
-                        |> List.filter (\t -> t.typeName == unknownType)
-                        |> List.map .label
-            in
-                ( model
-                , List.map (resolveTag model) unresolvedTags
-                    |> List.append
-                        [ tagListOutput <| encodeTags model
-                        , focus model
-                        ]
-                    |> Cmd.batch
-                )
+            ( model
+            , resolveTags model
+                |> List.append
+                    [ tagListOutput <| encodeTags model
+                    , focus model
+                    ]
+                |> Cmd.batch
+            )
 
         KeyDown key ->
             if (key == 13 || key == 9) && isNewTagAllowed model && model.inputText /= "" then
@@ -478,26 +480,18 @@ update msg model =
                 model
                     |> selectSuggestionInPreviousBlock
                     |> update Noop
-                --|> setInputTextToSuggestion
-                --|> update Focus
             else if (key == 38) then
                 model
                     |> selectPreviousSuggestion
                     |> update Noop
-                --|> setInputTextToSuggestion
-                --|> update Focus
             else if (key == 39) then
                 model
                     |> selectSuggestionInNextBlock
                     |> update Noop
-                --|> setInputTextToSuggestion
-                --|> update Focus
             else if (key == 40) then
                 model
                     |> selectNextSuggestion
                     |> update Noop
-                --|> setInputTextToSuggestion
-                --|> update Focus
             else
                 ( model, Cmd.none )
 
@@ -549,7 +543,7 @@ update msg model =
 
 debounce : Msg -> Msg
 debounce =
-    Debounce.trailing Debounce (175 * Time.millisecond)
+    Debounce.trailing Debounce (125 * Time.millisecond)
 
 
 encodeTags : Model -> String
@@ -601,9 +595,19 @@ updateInputField model =
     }
 
 
-newTag : String -> Tag
-newTag label =
-    Tag label unknownType Nothing
+{-| Create a new tag from a given label.
+-}
+newTag : Model -> String -> Tag
+newTag model label =
+    let
+        resolveURLs =
+            model.tagTypes
+                |> List.filter (\t -> t.enabled)
+                |> List.map .config
+                |> List.map .resolveURL
+                |> List.map (\url -> url ++ label)
+    in
+        Tag label unknownType resolveURLs Nothing
 
 
 saveTag : String -> Model -> Model
@@ -612,18 +616,18 @@ saveTag label model =
         tag =
             case model.selectedSuggestion of
                 Nothing ->
-                    newTag label
+                    newTag model label
 
                 Just tag ->
                     if tag.label == label then
                         tag
                     else
-                        newTag label
+                        newTag model label
     in
         if String.contains ";" label then
             String.split ";" label
                 |> List.filter (\s -> s /= "")
-                |> List.map newTag
+                |> List.map (newTag model)
                 |> List.take (model.size - List.length model.tags)
                 |> addTags model
         else
@@ -696,17 +700,32 @@ updateTag label resolvedTag model =
         }
 
 
-markTagInvalid : String -> Model -> Model
-markTagInvalid label model =
+markTagInvalid : String -> String -> Model -> Model
+markTagInvalid label url model =
     let
-        updateTagStatus tag =
+        removePendingURLFromTag tag =
             if (tag.label == label && tag.typeName == unknownType) then
-                { tag | typeName = errorType }
+                { tag
+                    | pendingResolveURLs = List.filter (\u -> u /= url) tag.pendingResolveURLs
+                }
             else
                 tag
+
+        setTagWithNoPendingURLsToError tag =
+            if (tag.label == label && tag.typeName == unknownType && List.length tag.pendingResolveURLs == 0) then
+                { tag
+                    | typeName = errorType
+                }
+            else
+                tag
+
+        updatedTags =
+            model.tags
+                |> List.map removePendingURLFromTag
+                |> List.map setTagWithNoPendingURLsToError
     in
         { model
-            | tags = List.map updateTagStatus model.tags
+            | tags = updatedTags
         }
 
 
@@ -746,11 +765,12 @@ updateEnabledTagTypes model =
                 model.tagTypes
                     |> List.map .config
                     |> List.map .name
+
             firstTagType =
                 model.tags
-                    |> List.filter (\t ->  List.member t.typeName definedTagTypes)
+                    |> List.filter (\t -> List.member t.typeName definedTagTypes)
                     |> List.head
-                    |> Maybe.withDefault (newTag "")
+                    |> Maybe.withDefault (newTag model "")
                     |> .typeName
 
             updatedTypes =
@@ -872,22 +892,6 @@ selectPreviousSuggestion model =
             }
 
 
-setInputTextToSuggestion : Model -> Model
-setInputTextToSuggestion model =
-    let
-        t =
-            case model.selectedSuggestion of
-                Nothing ->
-                    model.inputText
-
-                Just tag ->
-                    tag.label
-    in
-        { model | inputText = t }
-            |> incrementinputTextVersion
-            |> updateInputField
-
-
 getNext : a -> List a -> Maybe a
 getNext element list =
     list
@@ -938,6 +942,7 @@ decodeTagContent json =
     Pipeline.decode Tag
         |> Pipeline.required "label" string
         |> Pipeline.required "type" string
+        |> Pipeline.hardcoded []
         |> Pipeline.hardcoded (Just json)
 
 
@@ -964,6 +969,19 @@ fetchSuggestions version text tagType =
         Cmd.none
 
 
-resolveTag : Model -> String -> Cmd Msg
-resolveTag model label =
-    Http.send (TagResponse label) (Http.get (model.resolveURL ++ label) decodeTag)
+{-| For all tags of unknown type, create the http request commands
+ to try and resolve them.
+-}
+resolveTags : Model -> List (Cmd Msg)
+resolveTags model =
+    let
+        resolveTagUsingURL label url =
+            Http.send (TagResponse label url) (Http.get url decodeTag)
+
+        resolveTag tag =
+            List.map (resolveTagUsingURL tag.label) tag.pendingResolveURLs
+    in
+        model.tags
+            |> List.filter (\t -> t.typeName == unknownType && List.length t.pendingResolveURLs > 0)
+            |> List.map resolveTag
+            |> List.concat

@@ -14,10 +14,10 @@ This component is designed to be used as an embedded ELM component in JSF (integ
     "description" : "text to show in tag tooltip"
   }
 ```
-- Async. Users can enter a tag without waiting for the automplete option. Validation is done asynchronously afterwards. Invalid tags will get the 'invalid' class.
+- Async. Users can enter a tag without waiting for the autocomplete option. Validation is done asynchronously afterwards. Invalid tags will get the 'invalid' type.
 - Multi-Type. Allow multiple types of tags to be mixed in the same field (or not...)
 - Multi-Value. The number of tags allowed is configurable.
-- Multi-section utocomplete. Autocompletion that supports multiple sections. One section per allowed tag type in the same field.
+- Multi-Section autocomplete. Autocompletion that supports multiple sections. One section per allowed tag type in the same field.
 - Callback on tag list change.
 - Supports ; separated tag entry. Entering a string tag1;tag2 will expand into two tags.
 
@@ -89,7 +89,8 @@ npm start
 
 
 ## TODO
-- race condition bug
-- filter arrow/up down default actions
+- blur -> same as tab to exit field
+- tab on single field should move to next field
+- when cluster name is resolved, it doesn't add the collection name
 - update documentation
 - live demo? or pics?

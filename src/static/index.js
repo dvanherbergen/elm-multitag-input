@@ -11,18 +11,20 @@ var app = Elm.Main.embed(
         { "title" : "Artikels"
         , "name" : "article"
         , "autoCompleteURL" : "http://localhost:8080/static/temp.json?"
-
+     ,"resolveURL" : "http://localhost:8080/static/resolve.json?q="
         }
       , { "title" : "Grvk"
         , "name" : "grvk"
         , "autoCompleteURL" : "http://localhost:8080/static/temp.json?"
+             ,"resolveURL" : "http://localhost:8080/static/resolve.json?q="
         }
       , { "title" : "Clusters"
         , "name" : "cluster"
        , "autoCompleteURL" : "http://localhost:8080/static/temp.json?"
+     ,"resolveURL" : "http://localhost:8080/static/resolve.json?q="
         }
       ],
-     "tagResolveURL" : "http://localhost:8080/static/resolve.json?q=",
+
     "multiType" : false,
     "size" : 3,
     "tabIndex" : 1,
@@ -59,17 +61,19 @@ var app2 = Elm.Main.embed(
         { "title" : "Artikels"
         , "name" : "article"
         ,"autoCompleteURL" : "http://tag-list.getsandbox.com/article/"
+        ,"resolveURL" : "http://tag-list.getsandbox.com/resolve/article/"
         }
       , { "title" : "Grvk"
         , "name" : "grvk"
         , "autoCompleteURL" : "http://tag-list.getsandbox.com/grvk/"
+        ,"resolveURL" : "http://tag-list.getsandbox.com/resolve/grvk/"
         }
       , { "title" : "Clusters"
         , "name" : "cluster"
         , "autoCompleteURL" : "http://tag-list.getsandbox.com/cluster/"
+        ,"resolveURL" : "http://tag-list.getsandbox.com/resolve/cluster/"
         }
       ],
-    "tagResolveURL" : "http://tag-list.getsandbox.com/resolve/",
     "multiType" : false,
     "size" : 3,
     "tabIndex" : 2,
