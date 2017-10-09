@@ -89,6 +89,7 @@ npm start
 
 
 ## TODO
+- upgrade packages
 - blur -> same as tab to exit field
 - tab on single field should move to next field
 - when cluster name is resolved, it doesn't add the collection name

@@ -925,7 +925,9 @@ formatHttpErrorMessage error =
             log "Error" <| "Bad status: HTTP " ++ toString response.status ++ " : " ++ response.body
 
         Http.BadPayload message response ->
-            log "Error" <| "Unexpected Payload: " ++ message
+            -- TODO ignore message when no payload
+            --  log "Error" <| "Unexpected Payload: " ++ message
+            ""
 
         Http.NetworkError ->
             log "Error" "Network error"
