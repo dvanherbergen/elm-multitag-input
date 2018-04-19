@@ -966,7 +966,7 @@ encodeTag tag =
 fetchSuggestions : Int -> String -> TagType -> Cmd Msg
 fetchSuggestions version text tagType =
     if String.length text > 2 && tagType.enabled then
-        Http.send (ProcessSuggestions version tagType.config.name) (Http.get (tagType.config.autoCompleteURL ++ text) (Decode.list decodeTag))
+        Http.send (ProcessSuggestions version tagType.config.name) (getWithCookie (tagType.config.autoCompleteURL ++ text) (Decode.list decodeTag))
     else
         Cmd.none
 
@@ -978,7 +978,7 @@ resolveTags : Model -> List (Cmd Msg)
 resolveTags model =
     let
         resolveTagUsingURL label url =
-            Http.send (TagResponse label url) (Http.get url decodeTag)
+            Http.send (TagResponse label url) (getWithCookie url decodeTag)
 
         resolveTag tag =
             List.map (resolveTagUsingURL tag.label) tag.pendingResolveURLs
@@ -987,3 +987,18 @@ resolveTags model =
             |> List.filter (\t -> t.typeName == unknownType && List.length t.pendingResolveURLs > 0)
             |> List.map resolveTag
             |> List.concat
+
+
+{-| Create get that includes credentials (cookies) in the request.
+-}
+getWithCookie : String -> Decode.Decoder a -> Request a
+getWithCookie url decoder =
+  Http.request
+    { method = "GET"
+    , headers = []
+    , url = url
+    , body = Http.emptyBody
+    , expect = Http.expectJson decoder
+    , timeout = Nothing
+    , withCredentials = True
+    }
