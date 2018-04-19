@@ -605,7 +605,7 @@ newTag model label =
                 |> List.filter (\t -> t.enabled)
                 |> List.map .config
                 |> List.map .resolveURL
-                |> List.map (\url -> url ++ label)
+                |> List.map (\url -> url ++ (Http.encodeUri label))
     in
         Tag label unknownType resolveURLs Nothing
 
