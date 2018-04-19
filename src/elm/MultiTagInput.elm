@@ -991,7 +991,7 @@ resolveTags model =
 
 {-| Create get that includes credentials (cookies) in the request.
 -}
-getWithCookie : String -> Decode.Decoder a -> Request a
+getWithCookie : String -> Decode.Decoder a -> Http.Request a
 getWithCookie url decoder =
   Http.request
     { method = "GET"
