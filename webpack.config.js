@@ -110,13 +110,14 @@ if (isProd === true) {
             }),
             // extract CSS into a separate file
             // minify & mangle JS/CSS
-            new webpack.optimize.UglifyJsPlugin({
+           /* config.optimization.minimize
+            new webpack.optimize.minUglifyJsPlugin({
                 minimize: true,
                 compressor: {
                     warnings: false
                 }
                 // mangle:  true
-            })
+            })*/
         ]
     });
 }

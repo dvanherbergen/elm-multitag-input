@@ -343,6 +343,13 @@ port tagListOutput : String -> Cmd msg
 port tagListInput : (String -> msg) -> Sub msg
 
 
+{-| Port that allows JS to update the tag type labels.
+    This allows changing the labels to a different language after
+    the component has been initialized
+-}
+port tagTypeConfigs : (String -> msg) -> Sub msg
+
+
 
 {------------------------------
     UPDATE
@@ -363,12 +370,16 @@ type Msg
     | NotifyTagsChanged
     | AfterTagChange
     | SetTags String
+    | SetTagTypeConfigs String
     | Debounce (Control Msg)
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    tagListInput SetTags
+    Sub.batch
+    [ tagListInput SetTags
+    , tagTypeConfigs SetTagTypeConfigs
+    ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -532,6 +543,32 @@ update msg model =
             in
                 { model | tags = tagValues }
                     |> updateEnabledTagTypes
+                    |> update Noop
+
+        SetTagTypeConfigs value ->
+            let
+                decodeResult =
+                    Decode.decodeString (Decode.list decodeTagTypeConfig) value
+
+                tagConfigs =
+                    case decodeResult of
+                        Ok configs ->
+                            configs
+
+                        Err _ ->
+                            []
+
+                updateConfig tagType =
+                    let
+                        config = tagConfigs
+                            |> List.filter (\t -> t.name == tagType.config.name)
+                            |> List.head
+                            |> Maybe.withDefault tagType.config
+                    in
+                        { tagType | config = config }
+
+            in
+                { model | tagTypes = List.map updateConfig model.tagTypes }
                     |> update Noop
 
         Debounce control ->
@@ -946,6 +983,15 @@ decodeTagContent json =
         |> Pipeline.required "type" string
         |> Pipeline.hardcoded []
         |> Pipeline.hardcoded (Just json)
+
+
+decodeTagTypeConfig : Decode.Decoder TagTypeConfig
+decodeTagTypeConfig =
+    Pipeline.decode TagTypeConfig
+        |> Pipeline.required "title" string
+        |> Pipeline.required "name" string
+        |> Pipeline.required "autoCompleteURL" string
+        |> Pipeline.required "resolveURL" string
 
 
 encodeTag : Tag -> Encode.Value
